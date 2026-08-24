@@ -53,22 +53,26 @@ export class WebARManager {
       container,
       imageTargetSrc: targetUrl,
 
-      // --- Tracking Quality Tuning ---
-      // Lower filterMinCF = more willing to accept weaker feature matches
-      // Good for low-contrast targets like skin textures
-      filterMinCF: 0.00001,
+      // --- Tracking Quality Tuning for Moving Targets ---
+      // Higher filterMinCF = less smoothing lag during slow movements
+      filterMinCF: 0.001,
 
-      // Higher filterBeta = less smoothing = faster response to movement
-      // Good for when tracking is jumpy on skin that deforms/moves
-      filterBeta: 0.01,
+      // High filterBeta = locks instantly to fast movement with zero lag
+      // (This prevents the 3D model from sliding off when the target moves)
+      filterBeta: 10.0,
 
-      // missTolerance: frames target must be missing before considered "lost"
-      // Higher = more forgiving when lighting flickers, fewer false "lost" events
-      missTolerance: 10,
+      // missTolerance: wait only 3 frames before declaring target lost.
+      // This stops the model from "ghosting" or floating in empty space
+      // when the target moves quickly out of frame.
+      missTolerance: 3,
 
-      // warmupTolerance: frames target must be visible before considered "found"
-      // Lower = snappier detection on first scan
-      warmupTolerance: 3,
+      // warmupTolerance: frames target must be visible before displaying model.
+      // Lower means the model pops up instantly.
+      warmupTolerance: 2,
+
+      // Process candidate feature points per frame
+      maxTrack: 1,
+      processingMaxCount: 500,
 
       uiLoading: 'no',
       uiScanning: 'no',

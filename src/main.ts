@@ -4,6 +4,24 @@ import { ModelLoader } from './three/ModelLoader';
 import { AnimationController } from './three/AnimationController';
 import { campaigns, arConfig as defaultConfig } from './config/arConfig';
 
+// ── Monkeypatch getUserMedia to force High Definition (1080p) Camera Feed ──
+// MindAR requests camera constraints internally and doesn't expose resolution settings.
+// By intercepting this call, we force the browser to provide a high-res stream from the start.
+const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+navigator.mediaDevices.getUserMedia = async function (constraints) {
+  if (constraints && constraints.video) {
+    console.log('[WebAR] Intercepted camera request. Upgrading constraints...');
+    constraints.video = {
+      // @ts-ignore
+      facingMode: constraints.video.facingMode || 'environment',
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+      frameRate: { ideal: 30 }
+    };
+  }
+  return originalGetUserMedia(constraints);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   const arContainer = document.getElementById('ar-container')!;
   const btnStart = document.getElementById('btn-start') as HTMLButtonElement;
