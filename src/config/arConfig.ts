@@ -23,6 +23,14 @@ export const campaigns: Record<string, ARCampaign> = {
     targetUrl: "/assets/spider.mind",
     defaultAnimation: "Idle",
     scale: 0.1
+  },
+  "frog-001": {
+    id: "frog-001",
+    targetId: "target-003",
+    modelUrl: "/assets/frog/frog.glb",
+    targetUrl: "/assets/frog/frog.mind",
+    defaultAnimation: "Idle",
+    scale: 0.1
   }
 };
 
