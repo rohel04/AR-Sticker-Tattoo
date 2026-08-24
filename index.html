@@ -82,26 +82,23 @@
     <div id="ar-container"></div>
 
     <div id="ui-container">
-      <div class="logo">POC STUDIO</div>
+      <div class="logo">WebAR</div>
+      
+      <div id="target-status">Target Lost</div>
 
       <div id="status-panel">
         <p id="status-text">Initializing...</p>
+      </div>
+
       <div class="controls">
         <button id="btn-start">Start AR</button>
       </div>
 
       <!-- New Interactive Controls (Hidden until AR starts) -->
       <div id="interactive-ui" style="display: none;">
-        
-        <div class="zoom-control">
-          <label for="zoom-slider">🔍 Zoom</label>
-          <input type="range" id="zoom-slider" min="0.1" max="3" step="0.1" value="1">
-        </div>
-
         <div class="animation-tray" id="controls-container">
           <!-- Animation buttons will be injected here dynamically -->
         </div>
-
       </div>
 
       <div id="debug-panel">

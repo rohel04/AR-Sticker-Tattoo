@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnStart = document.getElementById('btn-start') as HTMLButtonElement;
   const controlsContainer = document.getElementById('controls-container')!;
   const interactiveUi = document.getElementById('interactive-ui')!;
-  const zoomSlider = document.getElementById('zoom-slider') as HTMLInputElement;
+  const targetStatus = document.getElementById('target-status')!;
   const statusText = document.getElementById('status-text')!;
 
   // Debug panel
@@ -44,8 +44,45 @@ document.addEventListener('DOMContentLoaded', () => {
   const tracker = webarManager.createTracker();
 
   let animController: AnimationController | null = null;
-  let modelLoaded = false;
   let animButtons: HTMLButtonElement[] = [];
+
+  // -- Pinch to Zoom State --
+  let initialPinchDistance = -1;
+  let initialModelScale = config.scale;
+
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2 && threeScene.trackedModel) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      initialPinchDistance = Math.sqrt(dx * dx + dy * dy);
+      initialModelScale = threeScene.trackedModel.userData.baseScale || config.scale;
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && initialPinchDistance > 0 && threeScene.trackedModel) {
+      // e.preventDefault(); // Optional
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const currentDistance = Math.sqrt(dx * dx + dy * dy);
+      
+      const scaleFactor = currentDistance / initialPinchDistance;
+      const absoluteBaseScale = config.scale;
+      
+      // Calculate and clamp scale between 0.1x and 5x of config scale
+      let newScale = initialModelScale * scaleFactor;
+      newScale = Math.max(absoluteBaseScale * 0.1, Math.min(newScale, absoluteBaseScale * 5));
+      
+      // Update baseScale so ThreeScene doesn't overwrite it on the next frame
+      threeScene.trackedModel.userData.baseScale = newScale;
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) {
+      initialPinchDistance = -1;
+    }
+  });
 
   // -- Load model in the background immediately --
   const modelLoader = new ModelLoader();
@@ -53,7 +90,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   modelLoader.loadCharacter(config.modelUrl)
     .then(({ model, animations }) => {
-      modelLoaded = true;
       dbgModel.innerText = 'true';
       statusText.innerText = `Model [${config.id}] loaded. Press Start AR.`;
 
@@ -61,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
         animController = new AnimationController(model, animations);
         animController.playAnimation(config.defaultAnimation);
         
-        // Dynamically create a button for EVERY animation found in the GLB
         animations.forEach(anim => {
           const btn = document.createElement('button');
           btn.innerText = anim.name;
@@ -74,17 +109,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!animController) return;
             animController.playAnimation(anim.name);
             
-            // UI Update: Highlight active button
             animButtons.forEach(b => b.classList.remove('active-anim'));
             btn.classList.add('active-anim');
             
-            // Revert to default animation after 5 seconds if it's not the default
             if (anim.name !== config.defaultAnimation) {
               setTimeout(() => {
                 animController!.playAnimation(config.defaultAnimation);
                 animButtons.forEach(b => b.classList.remove('active-anim'));
-                
-                // Re-highlight the default button
                 const defaultBtn = animButtons.find(b => b.innerText === config.defaultAnimation);
                 if (defaultBtn) defaultBtn.classList.add('active-anim');
               }, 5000);
@@ -97,18 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       threeScene.setTrackedModel(model, config.scale);
-
-      // Wire up Zoom slider
-      zoomSlider.addEventListener('input', (e) => {
-        const zoomValue = parseFloat((e.target as HTMLInputElement).value);
-        if (threeScene.trackedModel) {
-          // Multiply the original baseScale by the zoom factor
-          const baseScale = threeScene.trackedModel.userData.baseScale || config.scale;
-          const newScale = baseScale * zoomValue;
-          threeScene.trackedModel.scale.set(newScale, newScale, newScale);
-        }
-      });
-
       console.log('[AR] Model loaded, animations:', animations.map(a => a.name));
     })
     .catch((err: unknown) => {
@@ -120,10 +139,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // -- Start AR button --
   btnStart.addEventListener('click', async () => {
     btnStart.style.display = 'none';
+    
+    // Hide status panel entirely to make room for AR
+    const statusPanel = document.getElementById('status-panel');
+    if (statusPanel) statusPanel.style.display = 'none';
 
     try {
-      statusText.innerText = 'Requesting camera...';
-
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error(`Camera API missing. Secure context: ${window.isSecureContext}`);
       }
@@ -131,36 +152,57 @@ document.addEventListener('DOMContentLoaded', () => {
       const probe = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       probe.getTracks().forEach(t => t.stop());
 
-      statusText.innerText = 'Starting AR engine...';
       await webarManager.start();
 
       dbgAr.innerText  = 'true';
       dbgCam.innerText = 'active';
-      statusText.innerText = modelLoaded
-        ? 'Scan the target image'
-        : 'Model still loading…';
 
-      // Show interactive UI
+      // Show interactive UI and target status
       interactiveUi.style.display = 'flex';
+      targetStatus.style.display = 'block';
 
       // -- Render loop --
+      let isTargetVisible = false;
+
       const loop = () => {
+        requestAnimationFrame(loop);
+
         const pose = tracker.getPose();
         threeScene.updateTrackedPose(pose);
+        
+        // Target Status UI Update
+        const currentlyVisible = !!(pose && pose.visible);
+        
+        if (currentlyVisible !== isTargetVisible) {
+          isTargetVisible = currentlyVisible;
+          dbgTarget.innerText = isTargetVisible ? 'found' : 'lost';
+          
+          if (isTargetVisible) {
+            targetStatus.innerText = 'Target Found';
+            targetStatus.classList.add('found');
+          } else {
+            targetStatus.innerText = 'Target Lost';
+            targetStatus.classList.remove('found');
+          }
+        }
 
         const dt = threeScene.getDeltaTime();
-        animController?.update(dt);
+        if (animController) {
+          animController.update(dt);
+        }
 
         threeScene.render();
-        requestAnimationFrame(loop);
       };
       loop();
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      statusText.innerText = `Error: ${msg}`;
-      btnStart.style.display = 'inline-block';
-      console.error('[AR] Start failed:', err);
+      if (statusPanel) {
+        statusPanel.style.display = 'block';
+        statusText.innerText = `AR Error: ${msg}`;
+      }
+      dbgAr.innerText = 'error';
+      btnStart.style.display = 'block';
     }
   });
 

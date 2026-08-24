@@ -83,47 +83,52 @@ button:active {
 
 /* --- Interactive UI Enhancements --- */
 
+#target-status {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #ff3b3b; /* Red when lost */
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: bold;
+  z-index: 20;
+  backdrop-filter: blur(4px);
+  display: none; /* hidden until AR starts */
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+#target-status.found {
+  color: #00ff00; /* Green when found */
+}
+
 #interactive-ui {
   position: absolute;
-  bottom: 20px;
+  bottom: 25px;
   left: 0;
   width: 100%;
-  padding: 0 15px;
+  padding: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 15px;
   z-index: 10;
-  pointer-events: auto; /* Buttons and sliders must be clickable */
-}
-
-.zoom-control {
-  background: rgba(0, 0, 0, 0.7);
-  padding: 12px 20px;
-  border-radius: 25px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  color: white;
-  width: max-content;
-  margin: 0 auto;
-  font-weight: bold;
-  backdrop-filter: blur(5px);
-}
-
-.zoom-control input[type="range"] {
-  width: 160px;
-  accent-color: #ff3b3b;
+  pointer-events: auto; /* Buttons must be clickable */
 }
 
 .animation-tray {
   display: flex;
   overflow-x: auto;
-  gap: 10px;
-  padding: 10px 5px;
+  gap: 15px;
+  width: 100%;
+  padding: 10px 20px;
+  box-sizing: border-box;
   /* Hide scrollbar for a cleaner look but keep scrolling functional */
   -ms-overflow-style: none;  
   scrollbar-width: none;  
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  scroll-snap-type: x mandatory;
 }
 
 .animation-tray::-webkit-scrollbar { 
@@ -134,11 +139,13 @@ button:active {
   background: white;
   color: black;
   border: none;
-  padding: 12px 20px;
-  border-radius: 20px;
+  padding: 14px 24px;
+  border-radius: 25px;
   font-size: 16px;
   font-weight: bold;
   white-space: nowrap;
+  flex-shrink: 0; /* Prevents buttons from squishing */
+  scroll-snap-align: start;
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
   transition: all 0.2s ease;
 }
