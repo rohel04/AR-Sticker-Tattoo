@@ -45,13 +45,31 @@ export class TargetTracker {
 
 export class WebARManager {
   public mindarThree: any;
+  private videoTrack: MediaStreamTrack | null = null;
+  private torchOn = false;
 
   constructor(container: HTMLElement, targetUrl: string) {
     this.mindarThree = new MindARThree({
       container,
       imageTargetSrc: targetUrl,
-      filterMinCF: 0.0001,
-      filterBeta: 0.001,
+
+      // --- Tracking Quality Tuning ---
+      // Lower filterMinCF = more willing to accept weaker feature matches
+      // Good for low-contrast targets like skin textures
+      filterMinCF: 0.00001,
+
+      // Higher filterBeta = less smoothing = faster response to movement
+      // Good for when tracking is jumpy on skin that deforms/moves
+      filterBeta: 0.01,
+
+      // missTolerance: frames target must be missing before considered "lost"
+      // Higher = more forgiving when lighting flickers, fewer false "lost" events
+      missTolerance: 10,
+
+      // warmupTolerance: frames target must be visible before considered "found"
+      // Lower = snappier detection on first scan
+      warmupTolerance: 3,
+
       uiLoading: 'no',
       uiScanning: 'no',
       uiError: 'no'
@@ -66,6 +84,52 @@ export class WebARManager {
     return new TargetTracker(this.mindarThree, index);
   }
 
-  public async start() { await this.mindarThree.start(); }
-  public stop()        { this.mindarThree.stop(); }
+  public async start() {
+    await this.mindarThree.start();
+
+    // After MindAR starts, grab the actual video track so we can
+    // request a higher-quality/brighter feed and control the torch
+    try {
+      const video = this.mindarThree.video as HTMLVideoElement;
+      if (video && video.srcObject) {
+        const stream = video.srcObject as MediaStream;
+        this.videoTrack = stream.getVideoTracks()[0] ?? null;
+
+        if (this.videoTrack) {
+          // Request ideal constraints: high resolution + auto white balance
+          // This significantly helps in low-light / skin texture scenarios
+          await this.videoTrack.applyConstraints({
+            width:        { ideal: 1920 },
+            height:       { ideal: 1080 },
+            // @ts-ignore – experimental but supported on Android Chrome
+            whiteBalanceMode: 'continuous',
+            // @ts-ignore
+            exposureMode:     'continuous',
+            // @ts-ignore
+            focusMode:        'continuous'
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[WebAR] Could not apply advanced camera constraints:', err);
+    }
+  }
+
+  /** Toggle phone flashlight/torch. Returns new state. */
+  public async toggleTorch(): Promise<boolean> {
+    if (!this.videoTrack) return false;
+    try {
+      this.torchOn = !this.torchOn;
+      // @ts-ignore – torch is supported on Android Chrome
+      await this.videoTrack.applyConstraints({ advanced: [{ torch: this.torchOn }] });
+      return this.torchOn;
+    } catch {
+      console.warn('[WebAR] Torch not supported on this device');
+      return false;
+    }
+  }
+
+  public isTorchOn() { return this.torchOn; }
+
+  public stop() { this.mindarThree.stop(); }
 }

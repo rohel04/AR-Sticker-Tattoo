@@ -7,6 +7,7 @@ import { campaigns, arConfig as defaultConfig } from './config/arConfig';
 document.addEventListener('DOMContentLoaded', () => {
   const arContainer = document.getElementById('ar-container')!;
   const btnStart = document.getElementById('btn-start') as HTMLButtonElement;
+  const btnTorch = document.getElementById('btn-torch') as HTMLButtonElement;
   const controlsContainer = document.getElementById('controls-container')!;
   const interactiveUi = document.getElementById('interactive-ui')!;
   const targetStatus = document.getElementById('target-status')!;
@@ -160,6 +161,14 @@ document.addEventListener('DOMContentLoaded', () => {
       // Show interactive UI and target status
       interactiveUi.style.display = 'flex';
       targetStatus.style.display = 'block';
+
+      // Wire up torch toggle
+      btnTorch.addEventListener('click', async () => {
+        const isOn = await webarManager.toggleTorch();
+        btnTorch.innerText = isOn ? '🔦 Torch ON' : '🔦 Torch';
+        btnTorch.style.background = isOn ? '#ff3b3b' : 'white';
+        btnTorch.style.color = isOn ? 'white' : 'black';
+      });
 
       // -- Render loop --
       let isTargetVisible = false;
