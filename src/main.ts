@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const arContainer = document.getElementById('ar-container')!;
   const btnStart = document.getElementById('btn-start') as HTMLButtonElement;
   const controlsContainer = document.getElementById('controls-container')!;
+  const interactiveUi = document.getElementById('interactive-ui')!;
+  const zoomSlider = document.getElementById('zoom-slider') as HTMLInputElement;
   const statusText = document.getElementById('status-text')!;
 
   // Debug panel
@@ -63,16 +65,29 @@ document.addEventListener('DOMContentLoaded', () => {
         animations.forEach(anim => {
           const btn = document.createElement('button');
           btn.innerText = anim.name;
-          btn.style.display = 'none'; // Hidden until AR starts
-          btn.style.marginLeft = '5px';
+          
+          if (anim.name === config.defaultAnimation) {
+            btn.classList.add('active-anim');
+          }
           
           btn.addEventListener('click', () => {
             if (!animController) return;
             animController.playAnimation(anim.name);
             
+            // UI Update: Highlight active button
+            animButtons.forEach(b => b.classList.remove('active-anim'));
+            btn.classList.add('active-anim');
+            
             // Revert to default animation after 5 seconds if it's not the default
             if (anim.name !== config.defaultAnimation) {
-              setTimeout(() => animController!.playAnimation(config.defaultAnimation), 5000);
+              setTimeout(() => {
+                animController!.playAnimation(config.defaultAnimation);
+                animButtons.forEach(b => b.classList.remove('active-anim'));
+                
+                // Re-highlight the default button
+                const defaultBtn = animButtons.find(b => b.innerText === config.defaultAnimation);
+                if (defaultBtn) defaultBtn.classList.add('active-anim');
+              }, 5000);
             }
           });
           
@@ -82,6 +97,18 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       threeScene.setTrackedModel(model, config.scale);
+
+      // Wire up Zoom slider
+      zoomSlider.addEventListener('input', (e) => {
+        const zoomValue = parseFloat((e.target as HTMLInputElement).value);
+        if (threeScene.trackedModel) {
+          // Multiply the original baseScale by the zoom factor
+          const baseScale = threeScene.trackedModel.userData.baseScale || config.scale;
+          const newScale = baseScale * zoomValue;
+          threeScene.trackedModel.scale.set(newScale, newScale, newScale);
+        }
+      });
+
       console.log('[AR] Model loaded, animations:', animations.map(a => a.name));
     })
     .catch((err: unknown) => {
@@ -113,8 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ? 'Scan the target image'
         : 'Model still loading…';
 
-      // Show all dynamic animation buttons once AR has started
-      animButtons.forEach(btn => btn.style.display = 'inline-block');
+      // Show interactive UI
+      interactiveUi.style.display = 'flex';
 
       // -- Render loop --
       const loop = () => {

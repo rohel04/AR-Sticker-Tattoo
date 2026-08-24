@@ -1,11 +1,9 @@
-html, body {
+body {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
   overflow: hidden;
-  font-family: sans-serif;
-  background: #000;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #000;
 }
 
 #ar-container {
@@ -24,7 +22,7 @@ html, body {
   width: 100%;
   height: 100%;
   z-index: 2;
-  pointer-events: none; /* Let clicks pass through to AR container if needed */
+  pointer-events: none; /* Let clicks pass through to AR where needed */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -33,51 +31,120 @@ html, body {
 .logo {
   padding: 20px;
   font-size: 24px;
-  font-weight: bold;
+  font-weight: 800;
   color: white;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 #status-panel {
-  text-align: center;
-  color: white;
-  font-size: 18px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  margin-top: -100px; /* shift up a bit */
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 30px;
+  margin: 0 auto;
+  font-weight: 500;
+  backdrop-filter: blur(5px);
 }
 
 .controls {
-  padding: 20px;
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  pointer-events: auto; /* Buttons should be clickable */
+  text-align: center;
+  padding: 30px;
+  pointer-events: auto;
 }
 
 button {
+  background: #ffffff;
+  border: none;
   padding: 15px 30px;
   font-size: 18px;
-  border: none;
-  border-radius: 8px;
-  background: #ff4757;
-  color: white;
   font-weight: bold;
+  border-radius: 30px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
   cursor: pointer;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  transition: transform 0.2s;
 }
 
 button:active {
-  background: #ff6b81;
+  transform: scale(0.95);
 }
 
 #debug-panel {
   position: absolute;
-  top: 60px;
-  right: 20px;
-  background: rgba(0, 0, 0, 0.7);
+  top: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.5);
   color: #0f0;
-  padding: 10px;
   font-family: monospace;
-  font-size: 12px;
-  pointer-events: none;
+  font-size: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  pointer-events: auto;
+}
+
+/* --- Interactive UI Enhancements --- */
+
+#interactive-ui {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  width: 100%;
+  padding: 0 15px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  z-index: 10;
+  pointer-events: auto; /* Buttons and sliders must be clickable */
+}
+
+.zoom-control {
+  background: rgba(0, 0, 0, 0.7);
+  padding: 12px 20px;
+  border-radius: 25px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: white;
+  width: max-content;
+  margin: 0 auto;
+  font-weight: bold;
+  backdrop-filter: blur(5px);
+}
+
+.zoom-control input[type="range"] {
+  width: 160px;
+  accent-color: #ff3b3b;
+}
+
+.animation-tray {
+  display: flex;
+  overflow-x: auto;
+  gap: 10px;
+  padding: 10px 5px;
+  /* Hide scrollbar for a cleaner look but keep scrolling functional */
+  -ms-overflow-style: none;  
+  scrollbar-width: none;  
+}
+
+.animation-tray::-webkit-scrollbar { 
+  display: none; 
+}
+
+.animation-tray button {
+  background: white;
+  color: black;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 20px;
+  font-size: 16px;
+  font-weight: bold;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  transition: all 0.2s ease;
+}
+
+.animation-tray button.active-anim {
+  background: #ff3b3b;
+  color: white;
+  transform: scale(1.05);
 }

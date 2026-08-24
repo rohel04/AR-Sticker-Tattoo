@@ -6,7 +6,7 @@ export class ThreeScene {
   public camera: THREE.PerspectiveCamera;
   public renderer: THREE.WebGLRenderer;
   private clock: THREE.Clock;
-  private trackedModel: THREE.Group | null = null;
+  public trackedModel: THREE.Group | null = null;
 
   constructor(scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer) {
     this.scene = scene;
