@@ -87,8 +87,6 @@ export class WebARManager {
   public async start() {
     await this.mindarThree.start();
 
-    // After MindAR starts, grab the actual video track so we can
-    // request a higher-quality/brighter feed and control the torch
     try {
       const video = this.mindarThree.video as HTMLVideoElement;
       if (video && video.srcObject) {
@@ -96,22 +94,48 @@ export class WebARManager {
         this.videoTrack = stream.getVideoTracks()[0] ?? null;
 
         if (this.videoTrack) {
-          // Request ideal constraints: high resolution + auto white balance
-          // This significantly helps in low-light / skin texture scenarios
-          await this.videoTrack.applyConstraints({
-            width:        { ideal: 1920 },
-            height:       { ideal: 1080 },
-            // @ts-ignore – experimental but supported on Android Chrome
+          // Get what the camera actually supports first
+          const caps = this.videoTrack.getCapabilities() as any;
+
+          const constraints: MediaTrackConstraints & Record<string, any> = {
+            width:  { ideal: 1920 },
+            height: { ideal: 1080 },
+            // Continuous modes greatly help in auto-adjusting for low light & skin
             whiteBalanceMode: 'continuous',
-            // @ts-ignore
             exposureMode:     'continuous',
-            // @ts-ignore
-            focusMode:        'continuous'
-          });
+            focusMode:        'continuous',
+          };
+
+          // Digital zoom: make small targets fill more of the frame
+          // MindAR processes the full video frame — more pixels of the target = better tracking
+          // Clamp to device max so we don't crash on unsupported zoom levels
+          if (caps.zoom) {
+            const idealZoom = 2.0;
+            const safeZoom = Math.min(idealZoom, caps.zoom.max ?? idealZoom);
+            constraints.zoom = safeZoom;
+            console.log(`[WebAR] Applying camera zoom: ${safeZoom}x (max: ${caps.zoom.max})`);
+          }
+
+          await this.videoTrack.applyConstraints(constraints);
         }
       }
     } catch (err) {
       console.warn('[WebAR] Could not apply advanced camera constraints:', err);
+    }
+  }
+
+  /** Set camera digital zoom level. Returns actual zoom applied. */
+  public async setCameraZoom(level: number): Promise<number> {
+    if (!this.videoTrack) return 1;
+    try {
+      const caps = this.videoTrack.getCapabilities() as any;
+      if (!caps.zoom) return 1;
+      const safeZoom = Math.min(Math.max(level, caps.zoom.min ?? 1), caps.zoom.max ?? level);
+      // @ts-ignore
+      await this.videoTrack.applyConstraints({ zoom: safeZoom });
+      return safeZoom;
+    } catch {
+      return 1;
     }
   }
 

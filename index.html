@@ -94,8 +94,28 @@
         <button id="btn-start">Start AR</button>
       </div>
 
+      <!-- Scanning Guide (shown when target is lost, hidden on found) -->
+      <div id="scan-guide">
+        <div id="scan-reticle">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
+          <div id="scan-line"></div>
+        </div>
+        <p id="scan-hint">Point at the sticker &amp; move closer</p>
+      </div>
+
       <!-- New Interactive Controls (Hidden until AR starts) -->
       <div id="interactive-ui" style="display: none;">
+        <!-- Camera Zoom Row -->
+        <div id="cam-zoom-row">
+          <span>📷</span>
+          <button class="zoom-btn" data-zoom="1">1×</button>
+          <button class="zoom-btn active-zoom" data-zoom="2">2×</button>
+          <button class="zoom-btn" data-zoom="3">3×</button>
+          <button class="zoom-btn" data-zoom="4">4×</button>
+        </div>
         <div class="animation-tray" id="controls-container">
           <!-- Animation buttons will be injected here dynamically -->
         </div>

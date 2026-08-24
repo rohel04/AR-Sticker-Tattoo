@@ -162,6 +162,21 @@ document.addEventListener('DOMContentLoaded', () => {
       interactiveUi.style.display = 'flex';
       targetStatus.style.display = 'block';
 
+      // Show scan guide immediately (target not yet found)
+      const scanGuide = document.getElementById('scan-guide')!;
+      scanGuide.style.display = 'flex';
+
+      // Wire up camera zoom buttons
+      const zoomBtns = document.querySelectorAll<HTMLButtonElement>('.zoom-btn');
+      zoomBtns.forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const level = parseFloat(btn.dataset.zoom || '2');
+          await webarManager.setCameraZoom(level);
+          zoomBtns.forEach(b => b.classList.remove('active-zoom'));
+          btn.classList.add('active-zoom');
+        });
+      });
+
       // Wire up torch toggle
       btnTorch.addEventListener('click', async () => {
         const isOn = await webarManager.toggleTorch();
@@ -189,9 +204,13 @@ document.addEventListener('DOMContentLoaded', () => {
           if (isTargetVisible) {
             targetStatus.innerText = 'Target Found';
             targetStatus.classList.add('found');
+            // Hide scan guide — target acquired!
+            scanGuide.style.display = 'none';
           } else {
             targetStatus.innerText = 'Target Lost';
             targetStatus.classList.remove('found');
+            // Show scan guide again — help user re-acquire
+            scanGuide.style.display = 'flex';
           }
         }
 

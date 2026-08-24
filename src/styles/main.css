@@ -155,3 +155,106 @@ button:active {
   color: white;
   transform: scale(1.05);
 }
+
+/* --- Camera Zoom Row --- */
+#cam-zoom-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 20px;
+  color: white;
+  font-size: 18px;
+}
+
+.zoom-btn {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.5);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: bold;
+  backdrop-filter: blur(4px);
+  box-shadow: none;
+}
+
+.zoom-btn.active-zoom {
+  background: white;
+  color: black;
+  border-color: white;
+}
+
+/* --- Scan Guide Overlay --- */
+#scan-guide {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: none; /* shown by JS after AR starts */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  pointer-events: none;
+}
+
+#scan-reticle {
+  position: relative;
+  width: 240px;
+  height: 240px;
+}
+
+/* Animated pulsing border via corners */
+.corner {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-color: #fff;
+  border-style: solid;
+  animation: pulse-corner 1.6s ease-in-out infinite;
+}
+
+.corner.tl { top: 0; left: 0;  border-width: 4px 0 0 4px; border-radius: 4px 0 0 0; }
+.corner.tr { top: 0; right: 0; border-width: 4px 4px 0 0; border-radius: 0 4px 0 0; }
+.corner.bl { bottom: 0; left: 0;  border-width: 0 0 4px 4px; border-radius: 0 0 0 4px; }
+.corner.br { bottom: 0; right: 0; border-width: 0 4px 4px 0; border-radius: 0 0 4px 0; }
+
+@keyframes pulse-corner {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.92); }
+}
+
+/* Horizontal scan line that sweeps up and down */
+#scan-line {
+  position: absolute;
+  left: 10px; right: 10px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ff3b3b, transparent);
+  animation: scan-sweep 2s ease-in-out infinite;
+  box-shadow: 0 0 8px #ff3b3b;
+}
+
+@keyframes scan-sweep {
+  0%   { top: 10px;  opacity: 1; }
+  50%  { top: 228px; opacity: 0.8; }
+  100% { top: 10px;  opacity: 1; }
+}
+
+#scan-hint {
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  margin-top: 24px;
+  background: rgba(0,0,0,0.55);
+  padding: 8px 20px;
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+  letter-spacing: 0.5px;
+}
+
+
+.animation-tray button.active-anim {
+  background: #ff3b3b;
+  color: white;
+  transform: scale(1.05);
+}
