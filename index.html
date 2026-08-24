@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>WebAR POC</title>
+    <link rel="stylesheet" href="/src/styles/main.css" />
+
+    <!-- Global mobile error catcher -->
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        var extra = !col ? '' : '\\ncolumn: ' + col;
+        extra += !error ? '' : '\\nerror: ' + error.stack;
+        var errDiv = document.createElement('div');
+        errDiv.style.position = 'fixed';
+        errDiv.style.top = '0';
+        errDiv.style.left = '0';
+        errDiv.style.width = '100%';
+        errDiv.style.background = 'rgba(255,0,0,0.9)';
+        errDiv.style.color = 'white';
+        errDiv.style.padding = '15px';
+        errDiv.style.zIndex = '999999';
+        errDiv.style.fontFamily = 'monospace';
+        errDiv.style.fontSize = '12px';
+        errDiv.style.whiteSpace = 'pre-wrap';
+        errDiv.innerText = "Global Error: " + msg + "\\nurl: " + url + "\\nline: " + line + extra;
+        document.body.appendChild(errDiv);
+        return false;
+      };
+
+      // Catch module/script resource load failures
+      window.addEventListener('error', function(event) {
+        if (event.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'LINK')) {
+          var errDiv = document.createElement('div');
+          errDiv.style.position = 'fixed';
+          errDiv.style.top = '50px';
+          errDiv.style.left = '0';
+          errDiv.style.width = '100%';
+          errDiv.style.background = 'rgba(150,0,0,0.9)';
+          errDiv.style.color = 'white';
+          errDiv.style.padding = '15px';
+          errDiv.style.zIndex = '999999';
+          errDiv.style.fontFamily = 'monospace';
+          errDiv.style.fontSize = '12px';
+          errDiv.style.whiteSpace = 'pre-wrap';
+          errDiv.innerText = "Resource Load Error: Failed to load " + event.target.tagName + " src: " + (event.target.src || event.target.href);
+          document.body.appendChild(errDiv);
+        }
+      }, true);
+      
+      window.addEventListener('unhandledrejection', function(event) {
+        var errDiv = document.createElement('div');
+        errDiv.style.position = 'fixed';
+        errDiv.style.bottom = '0';
+        errDiv.style.left = '0';
+        errDiv.style.width = '100%';
+        errDiv.style.background = 'rgba(255,100,0,0.9)';
+        errDiv.style.color = 'white';
+        errDiv.style.padding = '15px';
+        errDiv.style.zIndex = '999999';
+        errDiv.style.fontFamily = 'monospace';
+        errDiv.style.fontSize = '12px';
+        errDiv.style.whiteSpace = 'pre-wrap';
+        errDiv.innerText = "Unhandled Rejection: " + (event.reason ? (event.reason.stack || event.reason) : event);
+        document.body.appendChild(errDiv);
+      });
+    </script>
+
+    <!-- Import map for native ES module resolution in the browser -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js",
+          "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/loaders/GLTFLoader.js",
+          "three/addons/renderers/CSS3DRenderer.js": "https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/renderers/CSS3DRenderer.js",
+          "mind-ar-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="ar-container"></div>
+
+    <div id="ui-container">
+      <div class="logo">POC STUDIO</div>
+
+      <div id="status-panel">
+        <p id="status-text">Initializing...</p>
+      </div>
+
+      <div class="controls" id="controls-container">
+        <button id="btn-start">Start AR</button>
+        <!-- Animation buttons will be injected here dynamically -->
+      </div>
+
+      <div id="debug-panel">
+        <div>AR initialized: <span id="dbg-ar">false</span></div>
+        <div>Camera: <span id="dbg-cam">inactive</span></div>
+        <div>Target: <span id="dbg-target">not detected</span></div>
+        <div>Model loaded: <span id="dbg-model">false</span></div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
