@@ -4,9 +4,13 @@ import { ModelLoader } from './three/ModelLoader';
 import { AnimationController } from './three/AnimationController';
 import { campaigns, arConfig as defaultConfig } from './config/arConfig';
 
-// ── Monkeypatch getUserMedia to force High Definition (1080p) Camera Feed ──
+// ── Monkeypatch getUserMedia to control the camera feed MindAR requests ──
 // MindAR requests camera constraints internally and doesn't expose resolution settings.
-// By intercepting this call, we force the browser to provide a high-res stream from the start.
+// By intercepting this call, we control what the browser negotiates from the start.
+// 720p, not 1080p: MindAR's tracker runs its per-frame detection at the raw
+// video resolution (no internal downscale), so 1080p roughly doubles tracking
+// CPU cost for no accuracy benefit and can starve the frame rate the low-lag
+// filter settings in WebARManager.ts rely on.
 const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
 navigator.mediaDevices.getUserMedia = async function (constraints) {
   if (constraints && constraints.video) {
@@ -14,8 +18,8 @@ navigator.mediaDevices.getUserMedia = async function (constraints) {
     constraints.video = {
       // @ts-ignore
       facingMode: constraints.video.facingMode || 'environment',
-      width: { ideal: 1920 },
-      height: { ideal: 1080 },
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
       frameRate: { ideal: 30 }
     };
   }

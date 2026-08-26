@@ -70,9 +70,7 @@ export class WebARManager {
       // Lower means the model pops up instantly.
       warmupTolerance: 2,
 
-      // Process candidate feature points per frame
       maxTrack: 1,
-      processingMaxCount: 500,
 
       uiLoading: 'no',
       uiScanning: 'no',
@@ -101,9 +99,14 @@ export class WebARManager {
           // Get what the camera actually supports first
           const caps = this.videoTrack.getCapabilities() as any;
 
+          // 720p keeps MindAR's per-frame CPU/WASM tracker (which runs at
+          // the raw video resolution — see mindar-image-three.prod.js) fast
+          // enough to keep up with the aggressive low-lag filter settings
+          // above. 1080p roughly doubles that per-frame cost for no
+          // tracking-accuracy benefit.
           const constraints: MediaTrackConstraints & Record<string, any> = {
-            width:  { ideal: 1920 },
-            height: { ideal: 1080 },
+            width:  { ideal: 1280 },
+            height: { ideal: 720 },
             // Continuous modes greatly help in auto-adjusting for low light & skin
             whiteBalanceMode: 'continuous',
             exposureMode:     'continuous',
