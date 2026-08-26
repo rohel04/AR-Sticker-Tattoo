@@ -1,5 +1,16 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
+import { fileURLToPath } from 'node:url';
+
+// 'three' is a real npm dependency (package.json) with exports for
+// './examples/jsm/*' and './addons/*', so it resolves locally with no
+// alias needed. 'mind-ar-three' isn't a published package (the CDN build
+// only ships a dist bundle under the 'mind-ar' name) — aliased to a local
+// vendored copy instead of the jsdelivr CDN, which some networks block
+// (that CDN dependency was breaking module loading for both AR engines).
+const mindArThreePath = fileURLToPath(
+  new URL('./public/vendor/mind-ar/mindar-image-three.prod.js', import.meta.url)
+);
 
 export default defineConfig({
   plugins: [
@@ -12,24 +23,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      'three': 'https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js',
-      'three/examples/jsm/loaders/GLTFLoader.js': 'https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/loaders/GLTFLoader.js',
-      'three/addons/renderers/CSS3DRenderer.js': 'https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/renderers/CSS3DRenderer.js',
-      'mind-ar-three': 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js'
+      'mind-ar-three': mindArThreePath
     }
-  },
-  optimizeDeps: {
-    exclude: ['mind-ar', 'three']
   },
   build: {
-    target: 'esnext',
-    rollupOptions: {
-      external: [
-        'three',
-        'three/examples/jsm/loaders/GLTFLoader.js',
-        'three/addons/renderers/CSS3DRenderer.js',
-        'mind-ar-three'
-      ]
-    }
+    target: 'esnext'
   }
 });

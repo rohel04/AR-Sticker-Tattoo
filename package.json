@@ -12,12 +12,14 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@8thwall/image-target-cli": "^1.0.0",
     "@types/three": "^0.149.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
     "vite-plugin-singlefile": "^2.3.3"
   },
   "dependencies": {
+    "@8thwall/engine-binary": "^1.0.0",
     "three": "^0.149.0"
   }
 }

@@ -66,14 +66,17 @@
       });
     </script>
 
-    <!-- Import map for native ES module resolution in the browser -->
+    <!-- Import map for native ES module resolution in the browser.
+         Vendored locally under /vendor (instead of cdn.jsdelivr.net) so the
+         app doesn't depend on that CDN being reachable on every network —
+         some networks block it, which broke module loading for both engines. -->
     <script type="importmap">
       {
         "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js",
-          "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/loaders/GLTFLoader.js",
-          "three/addons/renderers/CSS3DRenderer.js": "https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/renderers/CSS3DRenderer.js",
-          "mind-ar-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+          "three": "/vendor/three/three.module.js",
+          "three/examples/jsm/loaders/GLTFLoader.js": "/vendor/three/examples/jsm/loaders/GLTFLoader.js",
+          "three/addons/renderers/CSS3DRenderer.js": "/vendor/three/examples/jsm/renderers/CSS3DRenderer.js",
+          "mind-ar-three": "/vendor/mind-ar/mindar-image-three.prod.js"
         }
       }
     </script>
@@ -129,6 +132,7 @@
         <div>Camera: <span id="dbg-cam">inactive</span></div>
         <div>Target: <span id="dbg-target">not detected</span></div>
         <div>Model loaded: <span id="dbg-model">false</span></div>
+        <div>Pose: <span id="dbg-pose">-</span></div>
       </div>
     </div>
 

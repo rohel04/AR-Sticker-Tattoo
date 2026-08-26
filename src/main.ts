@@ -1,26 +1,42 @@
-import { WebARManager } from './ar/WebARManager';
+import * as THREE from 'three';
+import { MindARManager } from './ar/MindARManager';
+import { XREngineManager } from './ar/XREngineManager';
+import { IARManager } from './ar/IARManager';
 import { ThreeScene } from './three/ThreeScene';
 import { ModelLoader } from './three/ModelLoader';
 import { AnimationController } from './three/AnimationController';
 import { campaigns, arConfig as defaultConfig } from './config/arConfig';
 
-// ── Monkeypatch getUserMedia to force High Definition (1080p) Camera Feed ──
-// MindAR requests camera constraints internally and doesn't expose resolution settings.
-// By intercepting this call, we force the browser to provide a high-res stream from the start.
-const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-navigator.mediaDevices.getUserMedia = async function (constraints) {
-  if (constraints && constraints.video) {
-    console.log('[WebAR] Intercepted camera request. Upgrading constraints...');
-    constraints.video = {
-      // @ts-ignore
-      facingMode: constraints.video.facingMode || 'environment',
-      width: { ideal: 1920 },
-      height: { ideal: 1080 },
-      frameRate: { ideal: 30 }
-    };
-  }
-  return originalGetUserMedia(constraints);
-};
+// ── Monkeypatch getUserMedia (Only for MindAR) ─────────────────────────────
+// MindAR calls getUserMedia internally with low-res defaults.
+// We intercept and upgrade it. But we MUST NOT do this for 8th Wall,
+// because 8th Wall expects to read its own complex constraints (like width.min).
+const is8thWall = new URLSearchParams(window.location.search).get('engine') === '8thwall';
+
+if (!is8thWall) {
+  const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  navigator.mediaDevices.getUserMedia = async function (constraints) {
+    if (constraints && constraints.video) {
+      const origFacing = typeof constraints.video === 'object'
+        ? (constraints.video as MediaTrackConstraints).facingMode
+        : undefined;
+      
+      // Only merge safe defaults for MindAR.
+      // 720p, not 1080p: MindAR's tracker runs its per-frame detection at
+      // the raw video resolution (no internal downscale), so 1080p roughly
+      // doubles tracking CPU cost for no accuracy benefit and can starve
+      // the frame rate the low-lag filter settings rely on.
+      constraints.video = {
+        facingMode: origFacing || { ideal: 'environment' },
+        width:      { ideal: 1280 },
+        height:     { ideal: 720 },
+        frameRate:  { ideal: 30 },
+      };
+    }
+    return originalGetUserMedia(constraints);
+  };
+}
+
 
 document.addEventListener('DOMContentLoaded', () => {
   const arContainer = document.getElementById('ar-container')!;
@@ -36,10 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const dbgCam    = document.getElementById('dbg-cam')!;
   const dbgTarget = document.getElementById('dbg-target')!;
   const dbgModel  = document.getElementById('dbg-model')!;
+  const dbgPose   = document.getElementById('dbg-pose')!;
 
   // -- Dynamic Campaign Mapping (Phase 9 & 10) --
   const urlParams = new URLSearchParams(window.location.search);
   const paramId = urlParams.get('id') || urlParams.get('campaign');
+  const engineParam = urlParams.get('engine') || 'mindar';
   
   const pathParts = window.location.pathname.split('/');
   const pathId = pathParts[pathParts.length - 1]; 
@@ -54,13 +72,21 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('[AR-MAIN] Active Campaign:', config.id);
 
   // -- Initialize AR + Three layers --
-  const webarManager = new WebARManager(arContainer, config.targetUrl);
+  let arManager: IARManager;
+  if (engineParam === '8thwall') {
+    const targetUrl = config.targetUrl8thWall || config.targetUrl;
+    arManager = new XREngineManager(arContainer, targetUrl);
+  } else {
+    arManager = new MindARManager(arContainer, config.targetUrl);
+  }
+
   const threeScene   = new ThreeScene(
-    webarManager.getScene(),
-    webarManager.getCamera(),
-    webarManager.getRenderer()
+    arManager.getScene(),
+    arManager.getCamera(),
+    arManager.getRenderer(),
+    engineParam !== '8thwall'
   );
-  const tracker = webarManager.createTracker();
+  const tracker = arManager.createTracker();
 
   let animController: AnimationController | null = null;
   let animButtons: HTMLButtonElement[] = [];
@@ -107,6 +133,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const modelLoader = new ModelLoader();
   statusText.innerText = `Loading model (${config.id})...`;
 
+  // For 8th Wall, XR8.Threejs swaps the scene AFTER start() resolves, and
+  // that can race the (independent, network-bound) model load in either
+  // direction. Track both readiness signals and attach the model as soon as
+  // both are true — registering this listener only inside the model-load
+  // .then() (as before) missed the event whenever xr8-scene-ready fired
+  // first, silently leaving the model attached to nothing.
+  let loadedModel: THREE.Group | null = null;
+  let xr8SceneIsReady = false;
+  const attachModelToXR8SceneIfReady = () => {
+    if (!loadedModel || !xr8SceneIsReady) return;
+    threeScene.swapEngineObjects(arManager.getScene(), arManager.getCamera(), arManager.getRenderer());
+    threeScene.setTrackedModel(loadedModel, config.scale);
+    console.log('[AR] Model attached to XR8 scene');
+  };
+
+  if (engineParam === '8thwall') {
+    threeScene.autoResize = false;
+    window.addEventListener('xr8-scene-ready', () => {
+      xr8SceneIsReady = true;
+      attachModelToXR8SceneIfReady();
+    }, { once: true });
+  }
+
   modelLoader.loadCharacter(config.modelUrl)
     .then(({ model, animations }) => {
       dbgModel.innerText = 'true';
@@ -146,7 +195,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      threeScene.setTrackedModel(model, config.scale);
+      if (engineParam === '8thwall') {
+        loadedModel = model;
+        attachModelToXR8SceneIfReady();
+      } else {
+        threeScene.setTrackedModel(model, config.scale);
+      }
       console.log('[AR] Model loaded, animations:', animations.map(a => a.name));
     })
     .catch((err: unknown) => {
@@ -171,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const probe = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       probe.getTracks().forEach(t => t.stop());
 
-      await webarManager.start();
+      await arManager.start();
 
       dbgAr.innerText  = 'true';
       dbgCam.innerText = 'active';
@@ -189,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
       zoomBtns.forEach(btn => {
         btn.addEventListener('click', async () => {
           const level = parseFloat(btn.dataset.zoom || '2');
-          await webarManager.setCameraZoom(level);
+          await arManager.setCameraZoom(level);
           zoomBtns.forEach(b => b.classList.remove('active-zoom'));
           btn.classList.add('active-zoom');
         });
@@ -197,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Wire up torch toggle
       btnTorch.addEventListener('click', async () => {
-        const isOn = await webarManager.toggleTorch();
+        const isOn = await arManager.toggleTorch();
         btnTorch.innerText = isOn ? '🔦 Torch ON' : '🔦 Torch';
         btnTorch.style.background = isOn ? '#ff3b3b' : 'white';
         btnTorch.style.color = isOn ? 'white' : 'black';
@@ -206,12 +260,18 @@ document.addEventListener('DOMContentLoaded', () => {
       // -- Render loop --
       let isTargetVisible = false;
 
-      const loop = () => {
-        requestAnimationFrame(loop);
-
+      const tick = () => {
         const pose = tracker.getPose();
         threeScene.updateTrackedPose(pose);
-        
+
+        if (pose.visible) {
+          const p = pose.position;
+          const c = threeScene.camera.position;
+          dbgPose.innerText =
+            `p(${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)}) ` +
+            `cam(${c.x.toFixed(2)},${c.y.toFixed(2)},${c.z.toFixed(2)})`;
+        }
+
         // Target Status UI Update
         const currentlyVisible = !!(pose && pose.visible);
         
@@ -222,12 +282,10 @@ document.addEventListener('DOMContentLoaded', () => {
           if (isTargetVisible) {
             targetStatus.innerText = 'Target Found';
             targetStatus.classList.add('found');
-            // Hide scan guide — target acquired!
             scanGuide.style.display = 'none';
           } else {
             targetStatus.innerText = 'Target Lost';
             targetStatus.classList.remove('found');
-            // Show scan guide again — help user re-acquire
             scanGuide.style.display = 'flex';
           }
         }
@@ -236,10 +294,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (animController) {
           animController.update(dt);
         }
-
-        threeScene.render();
       };
-      loop();
+
+      if (engineParam === '8thwall') {
+        // XR8.Threejs owns the GL context and automatically calls renderer.render()
+        // inside its pipeline. We only need to run our logic tick to update animations/pose.
+        (arManager as any).setOnRender?.(() => {
+          tick();
+        });
+      } else {
+        // MindAR: standard RAF loop
+        const loop = () => {
+          requestAnimationFrame(loop);
+          tick();
+          threeScene.render();
+        };
+        loop();
+      }
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

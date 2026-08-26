@@ -2,14 +2,9 @@
 import { MindARThree } from 'mind-ar-three';
 import * as THREE from 'three';
 
-export interface TargetPose {
-  position: THREE.Vector3;
-  quaternion: THREE.Quaternion;
-  scale: THREE.Vector3;
-  visible: boolean;
-}
+import { IARTracker, TargetPose } from './IARManager';
 
-export class TargetTracker {
+export class TargetTracker implements IARTracker {
   private anchorGroup: THREE.Group;
   public visible = false;
   private pose: TargetPose;
@@ -43,7 +38,9 @@ export class TargetTracker {
   }
 }
 
-export class WebARManager {
+import { IARManager } from './IARManager';
+
+export class MindARManager implements IARManager {
   public mindarThree: any;
   private videoTrack: MediaStreamTrack | null = null;
   private torchOn = false;
@@ -70,9 +67,7 @@ export class WebARManager {
       // Lower means the model pops up instantly.
       warmupTolerance: 2,
 
-      // Process candidate feature points per frame
       maxTrack: 1,
-      processingMaxCount: 500,
 
       uiLoading: 'no',
       uiScanning: 'no',
@@ -98,24 +93,32 @@ export class WebARManager {
         this.videoTrack = stream.getVideoTracks()[0] ?? null;
 
         if (this.videoTrack) {
-          // Get what the camera actually supports first
-          const caps = this.videoTrack.getCapabilities() as any;
+          // getCapabilities() is not available on all browsers (e.g. iOS Safari < 16)
+          const caps: any = this.videoTrack.getCapabilities?.() ?? {};
 
+          // 720p keeps MindAR's per-frame CPU/WASM tracker (which runs at
+          // the raw video resolution — see mindar-image-three.prod.js) fast
+          // enough to keep up with the aggressive low-lag filter settings
+          // above. 1080p roughly doubles that per-frame cost for no
+          // tracking-accuracy benefit.
           const constraints: MediaTrackConstraints & Record<string, any> = {
-            width:  { ideal: 1920 },
-            height: { ideal: 1080 },
-            // Continuous modes greatly help in auto-adjusting for low light & skin
-            whiteBalanceMode: 'continuous',
-            exposureMode:     'continuous',
-            focusMode:        'continuous',
+            width:  { ideal: 1280 },
+            height: { ideal: 720 },
           };
 
-          // Digital zoom: make small targets fill more of the frame
-          // MindAR processes the full video frame — more pixels of the target = better tracking
-          // Clamp to device max so we don't crash on unsupported zoom levels
-          if (caps.zoom) {
+          // Continuous auto-modes (Android Chrome only — silently ignored elsewhere)
+          try {
+            Object.assign(constraints, {
+              whiteBalanceMode: 'continuous',
+              exposureMode:     'continuous',
+              focusMode:        'continuous',
+            });
+          } catch { /* unsupported — skip */ }
+
+          // Digital zoom: clamp to device max
+          if (caps.zoom?.max) {
             const idealZoom = 2.0;
-            const safeZoom = Math.min(idealZoom, caps.zoom.max ?? idealZoom);
+            const safeZoom = Math.min(idealZoom, caps.zoom.max);
             constraints.zoom = safeZoom;
             console.log(`[WebAR] Applying camera zoom: ${safeZoom}x (max: ${caps.zoom.max})`);
           }
@@ -132,9 +135,11 @@ export class WebARManager {
   public async setCameraZoom(level: number): Promise<number> {
     if (!this.videoTrack) return 1;
     try {
-      const caps = this.videoTrack.getCapabilities() as any;
+      const caps: any = this.videoTrack.getCapabilities?.() ?? {};
       if (!caps.zoom) return 1;
-      const safeZoom = Math.min(Math.max(level, caps.zoom.min ?? 1), caps.zoom.max ?? level);
+      const minZoom = caps.zoom.min ?? 1;
+      const maxZoom = caps.zoom.max ?? level;
+      const safeZoom = Math.min(Math.max(level, minZoom), maxZoom);
       // @ts-ignore
       await this.videoTrack.applyConstraints({ zoom: safeZoom });
       return safeZoom;

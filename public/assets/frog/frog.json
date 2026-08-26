@@ -1,0 +1,23 @@
+{
+  "imagePath": "image-targets/frog_luminance.webp",
+  "metadata": null,
+  "name": "frog",
+  "type": "PLANAR",
+  "properties": {
+    "left": 0,
+    "top": 50,
+    "width": 571,
+    "height": 761,
+    "isRotated": true,
+    "originalWidth": 571,
+    "originalHeight": 860
+  },
+  "resources": {
+    "originalImage": "frog_original.webp",
+    "croppedImage": "frog_cropped.webp",
+    "thumbnailImage": "frog_thumbnail.webp",
+    "luminanceImage": "frog_luminance.webp"
+  },
+  "created": 1787587432122,
+  "updated": 1787587432122
+}

@@ -3,6 +3,7 @@ export interface ARCampaign {
   targetId: string;
   modelUrl: string;
   targetUrl: string;
+  targetUrl8thWall?: string;
   defaultAnimation: string;
   scale: number;
 }
@@ -21,14 +22,16 @@ export const campaigns: Record<string, ARCampaign> = {
     targetId: "target-002",
     modelUrl: "/assets/spider.glb",
     targetUrl: "/assets/spider.mind",
+    targetUrl8thWall: "/assets/spider.json",
     defaultAnimation: "Idle",
-    scale: 0.1
+    scale: 0.3  // 0.3m = 30cm in 8th Wall meter-space (was 0.1 = 10cm, too small)
   },
   "frog-001": {
     id: "frog-001",
     targetId: "target-003",
     modelUrl: "/assets/frog/frog.glb",
     targetUrl: "/assets/frog/frog.mind",
+    targetUrl8thWall: "/assets/frog/frog.json",
     defaultAnimation: "Idle",
     scale: 0.1
   }

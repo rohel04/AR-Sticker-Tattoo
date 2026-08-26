@@ -1,49 +1,88 @@
 import * as THREE from 'three';
-import { TargetPose } from '../ar/WebARManager';
+import { TargetPose } from '../ar/IARManager';
 
 export class ThreeScene {
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
-  public renderer: THREE.WebGLRenderer;
+  public renderer: THREE.WebGLRenderer | null;
   private clock: THREE.Clock;
   public trackedModel: THREE.Group | null = null;
+  public autoResize = true;
 
-  constructor(scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer) {
+  // MindAR's anchor.matrixWorld decompose gives a real, calibrated scale
+  // (pose.scale) reflecting the tracked target's detected size — the
+  // pre-refactor version multiplied this into the model's scale. 8th Wall's
+  // reported scale is a different, not-yet-tuned quantity, so it keeps using
+  // a fixed baseScale until that's deliberately revisited.
+  private useAnchorScale: boolean;
+
+  constructor(
+    scene: THREE.Scene,
+    camera: THREE.PerspectiveCamera,
+    renderer: THREE.WebGLRenderer | null,
+    useAnchorScale = true,
+  ) {
     this.scene = scene;
     this.camera = camera;
     this.renderer = renderer;
     this.clock = new THREE.Clock();
+    this.useAnchorScale = useAnchorScale;
 
-    this.setupRenderer();
+    if (this.renderer) {
+      this.setupRenderer();
+    }
     this.setupLighting();
     window.addEventListener('resize', this.onWindowResize.bind(this));
   }
 
+  public swapEngineObjects(scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer) {
+    this.scene = scene;
+    this.camera = camera;
+    this.renderer = renderer;
+    this.setupRenderer(); // apply our graphics settings to the new renderer
+    this.setupLighting();
+
+    if (this.trackedModel) {
+      this.scene.add(this.trackedModel);
+    }
+  }
+
   private setupRenderer() {
+    if (!this.renderer) return;
     // ── 1. Retina / high-DPI pixel ratio ──────────────────────────────────
     // THE #1 reason commercial AR looks sharper. Modern phones have 2.5-3x
-    // physical pixels. Without this we render at 1x and it looks blurry.
+    // pixel density, but WebGL defaults to 1x (blurry). We cap at 2x for perf.
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
 
-    // ── 2. Transparent background so camera feed shows through ─────────────
-    this.renderer.setClearColor(0x000000, 0);
-    this.renderer.autoClear = true;
-
-    // ── 3. sRGB colour encoding (r149 API) ────────────────────────────────
-    // @ts-ignore
-    this.renderer.outputEncoding = THREE.sRGBEncoding;
-
-    // ── 4. ACESFilmic tone mapping ─────────────────────────────────────────
-    // Gives cinematic contrast — avoids washed-out whites and blown highlights.
+    // ── 2. Color Space & Tone Mapping (Crucial for GLTF) ──────────────────
+    // Without this, models look washed out, dark, or plasticky.
+    // Use sRGBEncoding for older three.js versions
+    (this.renderer as any).outputEncoding = (THREE as any).sRGBEncoding;
+    
+    // ACESFilmic simulates a cinema camera's dynamic range (brights don't clip harshly)
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
 
-    // ── 5. Physically correct light attenuation ────────────────────────────
+    // ── 3. Transparent Background (MindAR only) ───────────────────────────
+    // MindAR renders a transparent canvas over a separate <video> element,
+    // so clearing to transparent each frame is what lets the camera feed
+    // show through. 8th Wall's XR8.Threejs renderer instead draws the
+    // camera feed and the 3D scene into the SAME canvas/framebuffer via its
+    // own pipeline — forcing autoClear/transparent-clear here wipes out
+    // whichever of the two drew first, leaving a blank (white) canvas even
+    // though tracking itself is unaffected. 8th Wall's own reference
+    // integration never touches these two settings, so we only apply them
+    // for MindAR (useAnchorScale doubles as "this is MindAR" — see ctor).
+    if (this.useAnchorScale) {
+      this.renderer.setClearColor(0x000000, 0); // Transparent black
+      this.renderer.autoClear = true;
+    }
+
+    // ── 4. Physically correct light attenuation ─────────────────────────────
     // @ts-ignore – r149 API
     this.renderer.physicallyCorrectLights = true;
 
-    // ── 6. Soft shadow maps ────────────────────────────────────────────────
+    // Enable basic shadow maps (optional, if models cast shadows)
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   }
@@ -71,9 +110,7 @@ export class ThreeScene {
     this.scene.add(fillLight);
 
     // ── IBL environment map ───────────────────────────────────────────────
-    // Image-Based Lighting: makes PBR metallic/roughness materials show
-    // realistic reflections. This is what gives commercial AR that "polished"
-    // look on shiny or metallic models. No external HDR file needed.
+    if (!this.renderer) return;
     try {
       const pmrem = new THREE.PMREMGenerator(this.renderer);
       pmrem.compileEquirectangularShader();
@@ -109,10 +146,15 @@ export class ThreeScene {
     if (this.trackedModel) {
       if (pose.visible) {
         this.trackedModel.visible = true;
-        this.trackedModel.position.copy(pose.position);
-        this.trackedModel.quaternion.copy(pose.quaternion);
         const baseScale = this.trackedModel.userData.baseScale || 1.0;
-        this.trackedModel.scale.copy(pose.scale).multiplyScalar(baseScale);
+        if (this.useAnchorScale) {
+          this.trackedModel.scale.copy(pose.scale).multiplyScalar(baseScale);
+        } else {
+          this.trackedModel.scale.setScalar(baseScale);
+        }
+
+        this.trackedModel.quaternion.copy(pose.quaternion);
+        this.trackedModel.position.copy(pose.position);
       } else {
         this.trackedModel.visible = false;
       }
@@ -120,10 +162,13 @@ export class ThreeScene {
   }
 
   private onWindowResize() {
+    if (!this.autoResize) return;
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    if (this.renderer) {
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    }
   }
 
   public getDeltaTime(): number {
@@ -131,7 +176,9 @@ export class ThreeScene {
   }
 
   public render() {
-    this.renderer.render(this.scene, this.camera);
+    if (this.renderer) {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 }
 
